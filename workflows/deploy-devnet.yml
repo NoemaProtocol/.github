@@ -1,0 +1,79 @@
+name: Deploy (Devnet)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-devnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install Solana CLI (retry)
+        run: |
+          set -e
+          # Install dependencies first
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev libudev-dev pkg-config zlib1g-dev llvm clang cmake make
+          
+          # Try installing Solana with retries
+          for i in 1 2 3; do
+            if sh -c "$(curl -sSfL https://release.solana.com/v1.18.0/install)" 2>/dev/null; then
+              echo "solana install succeeded" && break
+            else
+              echo "solana install attempt $i failed, retrying..." && sleep 5
+            fi
+          done
+      - name: Add Solana to PATH
+        run: |
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Setup Anchor (avm)
+        run: |
+          set -euo pipefail
+          # ensure cargo bin dir is on PATH
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo install --locked --force --git https://github.com/coral-xyz/anchor avm || true
+          # prefer a recent avm release (0.32.1) which is compatible with modern anchors
+          avm install 0.32.1 || true
+          avm use 0.32.1 || true
+      - name: Checkout SPL-8004 program repo
+        uses: actions/checkout@v4
+        with:
+          repository: blambuer11/SPL--8004
+          path: spl-8004-program
+      
+      - name: Deploy program (anchor)
+        env:
+          SOLANA_KEYPAIR: ${{ secrets.SOLANA_KEYPAIR }}
+          ANCHOR_WALLET: /tmp/deploy-keypair.json
+          ANCHOR_PROVIDER_URL: https://api.devnet.solana.com
+        run: |
+          set -euo pipefail
+          # write keypair from secret to temp file (Anchor reads ANCHOR_WALLET)
+          echo "$SOLANA_KEYPAIR" > /tmp/deploy-keypair.json
+          # Diagnostics: print repo root and list relevant paths to help CI troubleshooting
+          echo "PWD: $(pwd)"
+          echo "Listing repo root:" && ls -la || true
+          echo "Listing spl-8004-program:" && ls -la ./spl-8004-program || true
+          echo "Listing spl-8004-program/spl-8004:" && ls -la ./spl-8004-program/spl-8004 || true
+          # Ensure cargo/bin and avm are on PATH
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cd ./spl-8004-program/spl-8004
+          anchor build
+          # deploy using explicit provider URL (avoid depending on system solana CLI)
+          anchor deploy --provider.cluster devnet --provider.url https://api.devnet.solana.com
+
+      - name: Print program id
+        run: |
+          set -euo pipefail
+          ls -la || true
+          cd ./spl-8004-program/spl-8004 || true
+          anchor keys list || true

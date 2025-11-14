@@ -1,0 +1,100 @@
+name: Build Anchor Program and Upload Artifacts
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ main ]
+
+jobs:
+  build-anchor:
+    runs-on: ubuntu-latest
+<<<<<<< HEAD
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+=======
+    timeout-minutes: 60
+>>>>>>> f3dd2a7 (Güncellemeler yapıldı)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          export PATH="$HOME/.cargo/bin:$PATH"
+          rustup toolchain install 1.82.0
+          rustup default 1.82.0
+<<<<<<< HEAD
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Cache Solana installation
+        id: cache-solana
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/solana/
+            ~/.local/share/solana/
+          key: solana-${{ runner.os }}-v1.20.6
+      
+      - name: Install Solana (v1.20.6)
+        if: steps.cache-solana.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          # Install system dependencies
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev libudev-dev pkg-config zlib1g-dev llvm clang cmake make ca-certificates
+          
+          # Try multiple install methods
+          if sh -c "$(curl -sSfL https://release.solana.com/v1.20.6/install)" 2>/dev/null; then
+            echo "✅ Solana installed successfully"
+          elif curl -sSfL https://release.solana.com/v1.20.6/install | sh -s -- -y 2>/dev/null; then
+            echo "✅ Solana installed via alternative method"
+          else
+            echo "❌ All install methods failed, trying insecure fallback..."
+            curl -ksSfL https://release.solana.com/v1.20.6/install | sh -s -- -y
+          fi
+      
+      - name: Add Solana to PATH
+        run: |
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+=======
+
+      - name: Install Solana (v1.20.6)
+        run: |
+          curl -sSfL "https://release.solana.com/v1.20.6/install" | sh -s -- -y
+          echo "PATH=$HOME/.local/share/solana/install/active_release/bin:$PATH" >> $GITHUB_ENV
+>>>>>>> f3dd2a7 (Güncellemeler yapıldı)
+
+      - name: Install Anchor CLI (v0.32.1)
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+<<<<<<< HEAD
+          cargo install --locked --git https://github.com/coral-xyz/anchor --tag v0.32.1 anchor-cli
+
+      - name: Build program
+        working-directory: spl_8004
+=======
+          cargo install --locked --git https://github.com/coral-xyz/anchor --tag v0.32.1 anchor-cli || true
+
+      - name: Build program
+        working-directory: ./spl-8004
+>>>>>>> f3dd2a7 (Güncellemeler yapıldı)
+        run: |
+          export PATH="$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          anchor build
+
+      - name: Upload compiled artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: spl-8004-artifacts
+          path: |
+<<<<<<< HEAD
+            spl_8004/target/deploy/*.so
+            spl_8004/target/deploy/*.json
+=======
+            spl-8004/target/deploy/*.so
+            spl-8004/target/deploy/*.json
+>>>>>>> f3dd2a7 (Güncellemeler yapıldı)

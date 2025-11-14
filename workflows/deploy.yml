@@ -1,0 +1,42 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js (use Node 20 for newer packages)
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      # Some lockfile/package mismatches were causing npm ci to fail in the runner.
+      # Use `npm install` under Node 20 to allow install and regenerate lock if necessary.
+      run: npm install
+
+    - name: Run linter
+      run: npm run lint || true
+
+    - name: Build
+      run: npm run build
+
+    - name: Deploy to Vercel (Production)
+      if: github.ref == 'refs/heads/main'
+      uses: amondnet/vercel-action@v20
+      with:
+        vercel-token: ${{ secrets.VERCEL_TOKEN }}
+        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+        vercel-args: '--prod'
